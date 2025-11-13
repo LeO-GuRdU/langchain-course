@@ -39,7 +39,7 @@ Born into a wealthy family in Pretoria, South Africa, Musk emigrated in 1989 to 
     # )
 
     llm = ChatOllama(
-        model="gemma3:270m",
+        model="mistral:latest",
         temperature=0,
     )
 
