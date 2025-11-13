@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import ChatOllama
 from langchain_tavily import TavilySearch
 from typing import List
@@ -43,17 +43,16 @@ class AgentResponse(BaseModel):
     answer: str = Field(description="The agent answer to the query")
     sources: List[Source] = Field(default_factory=list, description="List of sources used to generate the answer")
 
-groq_api_key = os.getenv("GROQ_API_KEY")
-# llm = ChatGroq(
-#     model="openai/gpt-oss-20b",
-#     temperature=0,
-#     api_key=groq_api_key,
-# )
-
-llm = ChatOllama(
-    model="mistral:latest",
+google_api_key = os.getenv("GOOGLE_API_KEY")
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
     temperature=0,
+    api_key=google_api_key,
 )
+# llm = ChatOllama(
+#     model="mistral:latest",
+#     temperature=0,
+# )
 
 tools = [TavilySearch()]
 agent = create_agent(model=llm, tools=tools, response_format=AgentResponse)
