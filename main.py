@@ -7,9 +7,15 @@ load_dotenv()
 from langchain_classic import hub
 from langchain_classic.agents import AgentExecutor
 from langchain_classic.agents.react.agent import create_react_agent
+from langchain_core.output_parsers.pydantic import PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnableLambda
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import ChatOllama
 from langchain_tavily import TavilySearch
+
+from prompt import REACT_PROMPT_WITH_FORMAT_INSTRUCTIONS
+from schemas import AgentResponse
 
 google_api_key = os.getenv("GOOGLE_API_KEY")
 tools = [TavilySearch()]
@@ -24,14 +30,42 @@ llm = ChatGoogleGenerativeAI(
 #     temperature=0,
 # )
 react_prompt = hub.pull("hwchase17/react")
-agent = create_react_agent(llm, tools, prompt=react_prompt)
+output_parser = PydanticOutputParser(pydantic_object=AgentResponse)
+react_prompt_with_format_instructions = PromptTemplate(
+    input_variables=[
+        "tool_names",
+        "input",
+        "agent_scratchpad",
+    ],
+    template=REACT_PROMPT_WITH_FORMAT_INSTRUCTIONS,
+).partial(
+    format_instructions=output_parser.get_format_instructions(),
+)
+
+agent = create_react_agent(
+    llm,
+    tools,
+    prompt=react_prompt_with_format_instructions,
+)
+
 agent_executor = AgentExecutor.from_agent_and_tools(agent, tools, verbose=True)
+extract_output = RunnableLambda(
+    lambda x: x["output"],
+)
+parse_output = RunnableLambda(
+    lambda x: output_parser.parse(x),
+)
+chain = agent_executor | extract_output | parse_output
 
 def main():
     print("Hello from langchain-course!")
 
-    response = agent_executor.invoke(input={"input": "Search for 3 job postings for ai engineer in Argentina and summarize them."})
-    print("Respuesta del agente:", response)
+    result = chain.invoke(
+        input={
+            "input": "Search for 3 job postings for ai engineer in Argentina in Linkedin and summarize them with their source URLs.",
+        }
+    )
+    print(result)
 
 
 if __name__ == "__main__":
