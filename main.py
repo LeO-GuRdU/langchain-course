@@ -4,16 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from langchain_classic import hub
-from langchain_classic.agents import AgentExecutor
-from langchain_classic.agents.react.agent import create_react_agent
-from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnableLambda
+from langchain.agents import create_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import ChatOllama
 from langchain_tavily import TavilySearch
 
-from prompt import REACT_PROMPT_WITH_FORMAT_INSTRUCTIONS
 from schemas import AgentResponse
 
 google_api_key = os.getenv("GOOGLE_API_KEY")
@@ -28,40 +23,29 @@ llm = ChatGoogleGenerativeAI(
 #     model="mistral:latest",
 #     temperature=0,
 # )
-structured_llm=llm.with_structured_output(AgentResponse)
-react_prompt = hub.pull("hwchase17/react")
-react_prompt_with_format_instructions = PromptTemplate(
-    input_variables=[
-        "tool_names",
-        "input",
-        "agent_scratchpad",
-    ],
-    template=REACT_PROMPT_WITH_FORMAT_INSTRUCTIONS,
-).partial(
-    format_instructions="",
-)
 
-agent = create_react_agent(
+# Create the ReAct agent usingthe new v1-alpha interface
+agent = create_agent(
     llm,
     tools,
-    prompt=react_prompt_with_format_instructions,
+    response_format=AgentResponse,
 )
 
-agent_executor = AgentExecutor.from_agent_and_tools(agent, tools, verbose=True)
-extract_output = RunnableLambda(
-    lambda x: x["output"],
-)
-chain = agent_executor | extract_output | structured_llm
 
 def main():
     print("Hello from langchain-course!")
 
-    result = chain.invoke(
-        input={
-            "input": "Search for 3 job postings for ai engineer in Argentina in Linkedin and summarize them with their source URLs.",
+    result = agent.invoke(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Search for 3 job postings for ai engineer full remote in Argentina in Linkedin and summarize them with their source URLs.",
+                }
+            ]
         }
     )
-    print(result)
+    print(result["structured_response"])
 
 
 if __name__ == "__main__":
